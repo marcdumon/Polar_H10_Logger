@@ -1,0 +1,10 @@
+# the template's ignores, the user's config and the logs
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv
+config.toml
+data/

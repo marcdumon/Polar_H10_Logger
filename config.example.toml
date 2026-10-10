@@ -1,0 +1,34 @@
+# Copy this file to config.toml and change what you need. A relative path is relative to this file's folder.
+
+[storage]
+dir = 'data/sessions'          # one folder per session below this
+memory_dir = 'data/memory'     # downloads of the strap's own memory recordings
+
+[device]
+name_prefix = 'Polar H10'      # used when address is empty
+address = ''                   # for example 'A0:9E:1A:12:34:56'; faster and exact
+scan_seconds = 20
+
+[streams]                      # the defaults of a session; the CLI and the API can override each
+hr = true                      # heart rate with RR intervals
+ecg = true
+ecg_sample_rate = 130
+acc = true
+acc_sample_rate = 200
+acc_range = 8
+
+[api]
+host = '127.0.0.1'
+port = 8770
+cors_origins = ['http://127.0.0.1:8765']   # the Automation desk
+
+[reconnect]
+max_tries = 0                  # 0: try until the session is stopped
+first_wait_s = 2
+max_wait_s = 30
+
+[markers]                      # number keys of the live view
+1 = 'angina onset'
+2 = 'angina stops'
+3 = 'exercise start'
+4 = 'exercise stop'
