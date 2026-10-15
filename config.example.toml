@@ -20,7 +20,7 @@ acc_range = 8
 [api]
 host = '127.0.0.1'
 port = 8770
-cors_origins = ['http://127.0.0.1:8765']   # the Automation desk
+cors_origins = []                # web pages that may call the API from a browser
 
 [reconnect]
 max_tries = 0                  # 0: try until the session is stopped

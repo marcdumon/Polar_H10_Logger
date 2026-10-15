@@ -22,7 +22,7 @@ def test_the_example_loads_with_paths_beside_the_file(tmp_path: Path) -> None:
     shutil.copy(EXAMPLE, path)
     config = load(path)
     assert config.storage_dir == tmp_path / 'data' / 'sessions' and config.memory_dir == tmp_path / 'data' / 'memory'
-    assert config.streams == Streams() and config.port == 8770 and config.cors_origins == ('http://127.0.0.1:8765',)
+    assert config.streams == Streams() and config.port == 8770 and config.cors_origins == ()
     assert config.markers['1'] == 'angina onset' and config.max_tries == 0 and config.first_wait_s == 2.0
 
 

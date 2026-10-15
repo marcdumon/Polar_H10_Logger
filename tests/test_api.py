@@ -1,6 +1,6 @@
 """The API while `polar-h10 record` runs, with a stand-in strap: the status, markers with 201 and 409, the strap's
-settings from the session or from a short connection with 503 when the strap cannot be reached, the session list, no
-start or stop route, the stream names, and CORS for the Automation desk. The API runs in the test's own event loop, as
+settings from the session or from a short connection with 503 when the strap cannot be reached, the session list, the
+stop, no start route, the stream names, and CORS for a listed web page. The API runs in the test's own event loop, as
 it runs in the loop of the `record` command."""
 
 import dataclasses
@@ -16,7 +16,7 @@ from polar_h10.hub import Hub
 from polar_h10.recorder import Recorder, default_request
 from polar_h10.strap import NOT_FOUND, StrapNotFound
 
-DESK = 'http://127.0.0.1:8765'
+ORIGIN = 'http://127.0.0.1:5000'
 
 
 @pytest.fixture
@@ -32,9 +32,15 @@ def recorder(config: Config, fake: FakeStrap) -> Recorder:
 
 
 @pytest.fixture
-async def client(config: Config, recorder: Recorder) -> AsyncIterator[httpx.AsyncClient]:
-    """The API around the recorder."""
-    app = create_app(recorder, recorder.hub, dataclasses.replace(config, cors_origins=(DESK,)))
+def stops() -> list[int]:
+    """The calls of the API's stop function."""
+    return []
+
+
+@pytest.fixture
+async def client(config: Config, recorder: Recorder, stops: list[int]) -> AsyncIterator[httpx.AsyncClient]:
+    """The API around the recorder; its stop function notes each call."""
+    app = create_app(recorder, recorder.hub, dataclasses.replace(config, cors_origins=(ORIGIN,)), lambda: stops.append(1))
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
         yield client
 
@@ -73,7 +79,12 @@ async def test_sessions_are_listed_and_read(client: httpx.AsyncClient, recorder:
     assert (await client.get('/sessions/..')).status_code == 404
 
 
-async def test_start_and_stop_belong_to_the_record_command(client: httpx.AsyncClient) -> None:
+async def test_a_stop_ends_the_recording_as_q_does(client: httpx.AsyncClient, stops: list[int]) -> None:
+    stopped = await client.post('/stop')
+    assert stopped.status_code == 202 and stopped.json() == {'stopping': True} and stops == [1]
+
+
+async def test_the_session_routes_do_not_start_or_stop(client: httpx.AsyncClient) -> None:
     assert (await client.post('/sessions', json={})).status_code == 405
     assert (await client.post('/sessions/stop')).status_code == 405
 
@@ -83,5 +94,5 @@ async def test_the_stream_refuses_unknown_names(client: httpx.AsyncClient) -> No
     assert refused.status_code == 400 and 'nope' in refused.json()['detail']
 
 
-async def test_the_desk_may_call_the_api(client: httpx.AsyncClient) -> None:
-    assert (await client.get('/status', headers={'Origin': DESK})).headers['access-control-allow-origin'] == DESK
+async def test_a_listed_web_page_may_call_the_api(client: httpx.AsyncClient) -> None:
+    assert (await client.get('/status', headers={'Origin': ORIGIN})).headers['access-control-allow-origin'] == ORIGIN

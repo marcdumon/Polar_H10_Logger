@@ -1,5 +1,5 @@
-"""The live hub: every sample batch and the status go to each subscriber's queue (the live views and the Automation
-desk); a full queue loses new events instead of slowing the logger. event_stream turns a subscription into
+"""The live hub: every sample batch and the status go to each subscriber's queue (the live views and the API's event
+streams); a full queue loses new events instead of slowing the logger. event_stream turns a subscription into
 Server-Sent Events text; close() ends every stream, so the API can stop at once."""
 
 import asyncio

@@ -1,7 +1,7 @@
 """The polar-h10 command with a stand-in strap: `record` runs until SIGTERM with the options given and prints the
 summary; it completes a session that ended without a stop; a refused setting and an unreachable strap are said;
-`capabilities` and `sessions` answer at once; `mark` without a recording says how to start one; a stop while a client
-follows the event stream is immediate; a missing config is said."""
+`capabilities` and `sessions` answer at once; `mark` without a recording says how to start one; `POST /stop` ends `record`
+with its summary; a stop while a client follows the event stream is immediate; a missing config is said."""
 
 import asyncio
 import json
@@ -17,6 +17,7 @@ import httpx
 import pytest
 from fakes import CAPS, FakeStrap, hr_bytes
 
+from polar_h10 import cli
 from polar_h10.api import create_app
 from polar_h10.cli import NOT_RUNNING, api_server, api_socket, build_parser, main, request_of, stop_api
 from polar_h10.config import Config, load
@@ -103,18 +104,47 @@ def test_mark_without_a_recording_says_how_to_start_one(config_file: Path, capsy
     assert NOT_RUNNING in capsys.readouterr().err
 
 
+async def test_post_stop_ends_record_with_its_summary(config_file: Path, monkeypatch: pytest.MonkeyPatch,
+                                                      capsys: pytest.CaptureFixture) -> None:
+    config = load(config_file)
+    sockets: list[socket.socket] = []
+    bind = cli.api_socket
+
+    def keep(found: Config) -> socket.socket | None:
+        """The API socket, kept so the test knows its port."""
+        sock = bind(found)
+        sockets.append(sock)
+        return sock
+
+    monkeypatch.setattr(cli, 'api_socket', keep)
+    strap = FakeStrap(hr=[hr_bytes(86, (700,))])
+    recording = asyncio.create_task(cli.run_record(config, default_request(config), lambda: strap))
+    while not sockets:
+        await asyncio.sleep(0.01)
+    async with httpx.AsyncClient(base_url=f'http://127.0.0.1:{sockets[0].getsockname()[1]}') as client:
+        for _ in range(200):
+            try:
+                stopped = await client.post('/stop')
+                break
+            except httpx.ConnectError:
+                await asyncio.sleep(0.02)
+    assert stopped.status_code == 202
+    assert await asyncio.wait_for(recording, 10) == 0
+    assert json.loads(capsys.readouterr().out)['ended_cleanly'] is True
+
+
 async def test_a_stop_ends_the_event_streams_at_once(config: Config, capfd: pytest.CaptureFixture) -> None:
     hub = Hub()
     config = Config(storage_dir=config.storage_dir, memory_dir=config.memory_dir, port=0)
     sock = api_socket(config)
-    server = api_server(create_app(Recorder(config, FakeStrap, hub), hub, config))
+    server = api_server(create_app(Recorder(config, FakeStrap, hub), hub, config, lambda: None))
     serving = asyncio.create_task(server.serve(sockets=[sock]))
     while not server.started:
         await asyncio.sleep(0.01)
     connected = threading.Event()
 
     def follow() -> None:
-        """A client that keeps reading the stream, as the Automation desk does."""
+        """A client that keeps reading the stream, as another program does."""
         url = f'http://127.0.0.1:{sock.getsockname()[1]}/stream'
         with httpx.Client(timeout=10) as client, client.stream('GET', url, params={'streams': 'hr'}) as response:
             for _ in response.iter_lines():

@@ -1,6 +1,6 @@
-"""The polar-h10 command. `record` connects to the strap, writes every stream to CSV files, serves the API for the
-Automation desk and shows the live view until q, Ctrl+C or SIGTERM; then it stops the session and prints its summary.
-`capabilities` and `sessions` answer at once; `mark` adds a marker to a running recording through its API."""
+"""The polar-h10 command. `record` connects to the strap, writes every stream to CSV files, serves the API for other
+programs and shows the live view until q, Ctrl+C, SIGTERM or POST /stop; then it stops the session and prints its
+summary. `capabilities` and `sessions` answer at once; `mark` adds a marker to a running recording through its API."""
 
 import argparse
 import asyncio
@@ -128,7 +128,7 @@ async def run_record(config: Config, request: Request, strap_factory: Callable[[
             return 1
         sock = api_socket(config)
         if sock is not None:
-            server = api_server(create_app(recorder, hub, config))
+            server = api_server(create_app(recorder, hub, config, stop.set))
             serving = asyncio.create_task(server.serve(sockets=[sock]))
         with live.keys(live.on_key(recorder, config.markers, stop.set)):
             await live.show(recorder, config.markers, stop)

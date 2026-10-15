@@ -2,7 +2,7 @@
 
 Logs everything a Polar H10 chest strap sends over Bluetooth LE to CSV files, live: heart rate with RR intervals, ECG
 (130 Hz, µV), accelerometer (25–200 Hz, ±2–8 g, mg), battery and events. While it records, a local API serves the
-status, sessions and a live event stream, for example for the Automation desk.
+status, sessions and a live event stream for other programs.
 
 ## Set up
 
@@ -36,5 +36,5 @@ after the reconnect (measured on 2026-10-09, three times). That gap shows in `se
 ## API
 
 Only while `polar-h10 record` runs, at `http://127.0.0.1:8770`: `GET /status`, `GET /capabilities`, `POST /markers`,
-`GET /stream?streams=hr,ecg,acc,status` (Server-Sent Events), `GET /sessions`, `GET /sessions/{id}`. The record command
-starts and stops the session itself.
+`POST /stop` (ends the recording, as `q` does), `GET /stream?streams=hr,ecg,acc,status` (Server-Sent Events),
+`GET /sessions`, `GET /sessions/{id}`. The record command starts the session itself.

@@ -1,9 +1,9 @@
-"""The HTTP API while `polar-h10 record` runs: the status, the strap's settings, markers, the session list and a live
-event stream for the Automation desk. The record command starts and stops the session itself. The routes run in the
-event loop of the recording, so a marker never races the recorder's own writes."""
+"""The HTTP API while `polar-h10 record` runs: the status, the strap's settings, markers, the stop, the session list and a
+live event stream for other programs. The record command starts the session itself; POST /stop ends it as q does. The
+routes run in the event loop of the recording, so a marker never races the recorder's own writes."""
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
@@ -35,8 +35,8 @@ async def _tick(recorder: Recorder, hub: Hub) -> None:
         await asyncio.sleep(1)
 
 
-def create_app(recorder: Recorder, hub: Hub, config: Config) -> FastAPI:
-    """The API around the recorder of a `record` command."""
+def create_app(recorder: Recorder, hub: Hub, config: Config, stop: Callable[[], None]) -> FastAPI:
+    """The API around the recorder of a `record` command; `stop` ends the recording, as q does."""
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -69,6 +69,12 @@ def create_app(recorder: Recorder, hub: Hub, config: Config) -> FastAPI:
         except NoSession as error:
             raise HTTPException(409, str(error)) from error
         return {'label': body.label, 'source': body.source}
+
+    @app.post('/stop', status_code=202)
+    async def stop_recording() -> dict:
+        """End the recording, as q, Ctrl+C and SIGTERM do: the files close and the summary is printed."""
+        stop()
+        return {'stopping': True}
 
     @app.get('/stream')
     async def stream(streams: str = 'hr,ecg,acc,status') -> StreamingResponse:
